@@ -9,6 +9,14 @@ from typing import Dict, List, Optional, Union
 import json
 import os
 
+from .utils import (
+    extract_field_names,
+    extract_field_metadata,
+    check_completeness,
+    check_validity,
+    compute_metrics
+)
+
 
 class UniversalityMetrics:
     """
@@ -28,8 +36,8 @@ class UniversalityMetrics:
         Parameters
         ----------
         config_path : str, optional
-            Path to the JSON configuration file containing both workflow requirements
-            and scanner compatibility categories.
+            Path to the JSON configuration file containing workflow requirements,
+            scanner compatibility categories, operational medical sites, and operational countries.
             If None, defaults to 'config/universality_metrics_config.json' in the project root directory.
         """
         # Get project root (parent of future_ai_metrics package)
@@ -44,9 +52,15 @@ class UniversalityMetrics:
         try:
             with open(config_path, 'r') as f:
                 config = json.load(f)
-                self.workflow_requirements = config.get('workflow_requirements', [])
-                self.compatibility_categories = config.get('compatibility_categories', [])
-                self.operational_medical_sites_categories = config.get('operational_medical_sites_categories', [])
+                # Extract field names from the new structure (supports both old and new format)
+                self.workflow_requirements = extract_field_names(config.get('workflow_requirements', []))
+                self.workflow_requirements_metadata = extract_field_metadata(config.get('workflow_requirements', []))
+                self.compatibility_categories = extract_field_names(config.get('compatibility_categories', []))
+                self.compatibility_categories_metadata = extract_field_metadata(config.get('compatibility_categories', []))
+                self.operational_medical_sites_categories = extract_field_names(config.get('operational_medical_sites_categories', []))
+                self.operational_medical_sites_metadata = extract_field_metadata(config.get('operational_medical_sites_categories', []))
+                self.operational_countries_categories = extract_field_names(config.get('operational_countries_categories', []))
+                self.operational_countries_metadata = extract_field_metadata(config.get('operational_countries_categories', []))
         except FileNotFoundError:
             raise FileNotFoundError(
                 f"Configuration file not found: {config_path}. "
@@ -74,77 +88,22 @@ class UniversalityMetrics:
                 "No operational medical sites categories found in configuration file. "
                 "The 'operational_medical_sites_categories' key must contain a non-empty list."
             )
-    
-    def _validate_field(
-        self,
-        field_name: str,
-        field_value: Union[str, int, float, List[str], Dict, None],
-        field_type: Optional[str] = None
-    ) -> bool:
-        """
-        Validate a field value based on its expected type and constraints.
         
-        Parameters
-        ----------
-        field_name : str
-            Name of the field being validated
-        field_value : Union[str, int, float, List[str], Dict, None]
-            The value to validate
-        field_type : str, optional
-            Special validation type (e.g., 'hardware_type' for CPU/GPU check)
-            
-        Returns
-        -------
-        bool
-            True if the field is valid, False otherwise
-        """
-        if field_value is None:
-            return False
-        
-        # Special validation for hardware_type
-        if field_type == 'hardware_type':
-            return (
-                isinstance(field_value, str) and 
-                field_value.lower() in ['cpu', 'gpu']
+        if not self.operational_countries_categories:
+            raise ValueError(
+                "No operational countries categories found in configuration file. "
+                "The 'operational_countries_categories' key must contain a non-empty list."
             )
-        
-        # Validation for numeric fields (int/float > 0)
-        if field_type in ['ram_memory', 'disk_space']:
-            return (
-                isinstance(field_value, (int, float)) and 
-                field_value > 0
-            )
-        
-        # Validation for string fields (non-empty after strip)
-        if isinstance(field_value, str):
-            return len(field_value.strip()) > 0
-        
-        # Validation for list/tuple fields
-        if isinstance(field_value, (list, tuple)):
-            if len(field_value) == 0:
-                return False
-            # Check if all items are non-empty strings
-            return all(
-                isinstance(item, str) and len(item.strip()) > 0 
-                for item in field_value
-            )
-        
-        # Validation for dict fields (non-empty)
-        if isinstance(field_value, dict):
-            return len(field_value) > 0
-        
-        # For other types, consider valid if not None
-        return True
     
     def workflow_requirements_score(
         self,
         user_requirements: Dict[str, Union[str, int, float, List[str], None]]
     ) -> Dict[str, Union[float, Dict[str, bool]]]:
         """
-        Compute a metric that evaluates if the digital infrastructure settings
+        Compute metrics that evaluate if the digital infrastructure settings
         for executing the AI tool are properly reported.
         
-        This metric checks for the presence of:
+        This metric checks for the presence and validity of:
         - Hardware type (CPU/GPU)
         - RAM memory amount
         - Hard disk space needed
@@ -167,45 +126,29 @@ class UniversalityMetrics:
         -------
         dict
             Dictionary containing:
-            - 'score' (float): Completeness score between 0.0 and 1.0
-            - 'details' (dict): Boolean flags for each requirement category
+            - 'completeness_score' (float): Score for field presence (0.0 to 1.0)
+            - 'validity_score' (float): Score for field validity according to definitions (0.0 to 1.0)
+            - 'completeness_details' (dict): Boolean flags for each field's presence
+            - 'validity_details' (dict): Boolean flags for each field's validity
             - 'missing' (list): List of missing requirement categories
+            - 'invalid' (list): List of invalid requirement categories
             
         """
-        # Use required categories from instance variable (loaded from JSON)
-        workflow_requirements = self.workflow_requirements
-        
-        # Check each category (only those defined in workflow_requirements)
-        # This ensures we only check fields specified in the config, ignoring any extra fields
-        details = {}
-        missing = []
-        
-        for field_name in workflow_requirements:
-            field_value = user_requirements.get(field_name)
-            # Use field_name as field_type for special validation cases
-            is_valid = self._validate_field(field_name, field_value, field_type=field_name)
-            details[field_name] = is_valid
-            if not is_valid:
-                missing.append(field_name)
-        
-        # Calculate completeness score
-        score = sum(details.values()) / len(workflow_requirements) if workflow_requirements else 0.0
-        
-        return {
-            'score': score,
-            'details': details,
-            'missing': missing
-        }
+        return compute_metrics(
+            self.workflow_requirements,
+            self.workflow_requirements_metadata,
+            user_requirements
+        )
     
     def scanner_software_compatibility(
         self,
         compatibility_info: Dict[str, Union[str, int, float, List[str], Dict, None]]
     ) -> Dict[str, Union[float, Dict[str, bool]]]:
         """
-        Compute a metric that evaluates if the AI tool ensures compatibility with
+        Compute metrics that evaluate if the AI tool ensures compatibility with
         reconstruction algorithms used on the imaging data during medical image acquisition.
         
-        This metric checks for the presence of compatibility information regarding:
+        This metric checks for the presence and validity of compatibility information regarding:
         - Scanner manufacturer
         - Scanner model
         - Reconstruction algorithms
@@ -231,67 +174,29 @@ class UniversalityMetrics:
         -------
         dict
             Dictionary containing:
-            - 'score' (float): Completeness score between 0.0 and 1.0
-            - 'details' (dict): Boolean flags for each compatibility category
+            - 'completeness_score' (float): Score for field presence (0.0 to 1.0)
+            - 'validity_score' (float): Score for field validity according to definitions (0.0 to 1.0)
+            - 'completeness_details' (dict): Boolean flags for each field's presence
+            - 'validity_details' (dict): Boolean flags for each field's validity
             - 'missing' (list): List of missing compatibility categories
+            - 'invalid' (list): List of invalid compatibility categories
             
         """
-        # Use compatibility categories from instance variable (loaded from JSON)
-        compatibility_categories = self.compatibility_categories
-        
-        # Check each category (only those defined in compatibility_categories)
-        # This ensures we only check fields specified in the config, ignoring any extra fields
-        details = {}
-        missing = []
-        
-        for field_name in compatibility_categories:
-            field_value = compatibility_info.get(field_name)
-            
-            # Special handling for image_format (can be str or list)
-            if field_name == 'image_format':
-                if isinstance(field_value, str):
-                    is_valid = len(field_value.strip()) > 0
-                elif isinstance(field_value, (list, tuple)):
-                    is_valid = (
-                        len(field_value) > 0 and
-                        all(isinstance(fmt, str) and len(fmt.strip()) > 0 for fmt in field_value)
-                    )
-                else:
-                    is_valid = False
-            # Special handling for acquisition_parameters (can be dict or list)
-            elif field_name == 'acquisition_parameters':
-                if isinstance(field_value, dict):
-                    is_valid = len(field_value) > 0
-                elif isinstance(field_value, (list, tuple)):
-                    is_valid = len(field_value) > 0
-                else:
-                    is_valid = False
-            else:
-                # Use generic validation for other fields
-                is_valid = self._validate_field(field_name, field_value)
-            
-            details[field_name] = is_valid
-            if not is_valid:
-                missing.append(field_name)
-        
-        # Calculate completeness score
-        score = sum(details.values()) / len(compatibility_categories) if compatibility_categories else 0.0
-        
-        return {
-            'score': score,
-            'details': details,
-            'missing': missing
-        }
+        return compute_metrics(
+            self.compatibility_categories,
+            self.compatibility_categories_metadata,
+            compatibility_info
+        )
     
     def operational_medical_sites_score(
         self,
         medical_site_info: Dict[str, Union[str, None]]
     ) -> Dict[str, Union[float, Dict[str, bool]]]:
         """
-        Compute a metric that evaluates if information about the operational medical site
+        Compute metrics that evaluate if information about the operational medical site
         which is going to run the AI tool is properly reported.
         
-        This metric checks for the presence of:
+        This metric checks for the presence and validity of:
         - Department
         - Section
         - Specialty
@@ -310,33 +215,57 @@ class UniversalityMetrics:
         -------
         dict
             Dictionary containing:
-            - 'score' (float): Completeness score between 0.0 and 1.0
-            - 'details' (dict): Boolean flags for each medical site category
+            - 'completeness_score' (float): Score for field presence (0.0 to 1.0)
+            - 'validity_score' (float): Score for field validity according to definitions (0.0 to 1.0)
+            - 'completeness_details' (dict): Boolean flags for each field's presence
+            - 'validity_details' (dict): Boolean flags for each field's validity
             - 'missing' (list): List of missing medical site categories
+            - 'invalid' (list): List of invalid medical site categories
             
         """
-        # Use operational medical sites categories from instance variable (loaded from JSON)
-        operational_medical_sites_categories = self.operational_medical_sites_categories
+        return compute_metrics(
+            self.operational_medical_sites_categories,
+            self.operational_medical_sites_metadata,
+            medical_site_info
+        )
+    
+    def operational_countries_score(
+        self,
+        countries_info: Dict[str, Union[str, List[str], None]]
+    ) -> Dict[str, Union[float, Dict[str, bool]]]:
+        """
+        Compute metrics that evaluate if information about the countries for which
+        the AI tool is designed is properly reported, in terms of compliance with
+        regulation aspects and legal implications.
         
-        # Check each category (only those defined in operational_medical_sites_categories)
-        # This ensures we only check fields specified in the config, ignoring any extra fields
-        details = {}
-        missing = []
+        This metric checks for the presence and validity of:
+        - Countries: List of countries where the tool is designed to operate
+        - Regulations: List of applicable regulations and legal frameworks
+        - Legal frameworks: List of compliance standards for each country
         
-        for field_name in operational_medical_sites_categories:
-            field_value = medical_site_info.get(field_name)
-            # All fields in this metric are strings, use generic validation
-            is_valid = self._validate_field(field_name, field_value)
-            details[field_name] = is_valid
-            if not is_valid:
-                missing.append(field_name)
-        
-        # Calculate completeness score
-        score = sum(details.values()) / len(operational_medical_sites_categories) if operational_medical_sites_categories else 0.0
-        
-        return {
-            'score': score,
-            'details': details,
-            'missing': missing
-        }
+        Parameters
+        ----------
+        countries_info : dict
+            Dictionary containing operational countries information. Expected keys:
+            - 'countries' (list): List of country names or ISO codes (e.g., ['USA', 'EU', 'UK'])
+            - 'regulations' (list): List of regulations that apply (e.g., ['GDPR', 'FDA', 'MDR', 'HIPAA'])
+            - 'legal_frameworks' (list): List of legal frameworks and compliance standards
+            
+        Returns
+        -------
+        dict
+            Dictionary containing:
+            - 'completeness_score' (float): Score for field presence (0.0 to 1.0)
+            - 'validity_score' (float): Score for field validity according to definitions (0.0 to 1.0)
+            - 'completeness_details' (dict): Boolean flags for each field's presence
+            - 'validity_details' (dict): Boolean flags for each field's validity
+            - 'missing' (list): List of missing country-related categories
+            - 'invalid' (list): List of invalid country-related categories
+            
+        """
+        return compute_metrics(
+            self.operational_countries_categories,
+            self.operational_countries_metadata,
+            countries_info
+        )
 

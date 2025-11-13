@@ -1,26 +1,149 @@
 {
   "workflow_requirements": [
-    "hardware_type",
-    "ram_memory",
-    "disk_space",
-    "operating_system",
-    "libraries",
-    "preprocessing_algorithms"
+    {
+      "name": "hardware_type",
+      "data_type": "string",
+      "possible_values": ["cpu", "gpu"],
+      "required": true,
+      "description": "Type of hardware required (CPU or GPU)"
+    },
+    {
+      "name": "ram_memory",
+      "data_type": "number",
+      "min": 0,
+      "required": true,
+      "description": "RAM memory amount in GB (must be greater than 0)"
+    },
+    {
+      "name": "disk_space",
+      "data_type": "number",
+      "min": 0,
+      "required": true,
+      "description": "Hard disk space needed in GB (must be greater than 0)"
+    },
+    {
+      "name": "operating_system",
+      "data_type": "string",
+      "required": true,
+      "description": "Operating system name and version"
+    },
+    {
+      "name": "libraries",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of required library/dependency names"
+    },
+    {
+      "name": "preprocessing_algorithms",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of preprocessing algorithm names"
+    }
   ],
   "compatibility_categories": [
-    "scanner_manufacturer",
-    "scanner_model",
-    "reconstruction_algorithms",
-    "post_processing_algorithms",
-    "software_version",
-    "image_format",
-    "acquisition_parameters"
+    {
+      "name": "scanner_manufacturer",
+      "data_type": "string",
+      "required": true,
+      "description": "Scanner manufacturer name (e.g., 'Siemens', 'GE', 'Philips')"
+    },
+    {
+      "name": "scanner_model",
+      "data_type": "string",
+      "required": true,
+      "description": "Specific scanner model name"
+    },
+    {
+      "name": "reconstruction_algorithms",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of supported reconstruction algorithm names"
+    },
+    {
+      "name": "post_processing_algorithms",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of supported post-processing algorithm names"
+    },
+    {
+      "name": "software_version",
+      "data_type": "string",
+      "required": true,
+      "description": "Version of the reconstruction software"
+    },
+    {
+      "name": "image_format",
+      "data_type": "string_or_list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "Supported image format(s) - can be a string or list of strings (e.g., 'DICOM', 'NIfTI')"
+    },
+    {
+      "name": "acquisition_parameters",
+      "data_type": "dict_or_list",
+      "required": true,
+      "description": "Supported acquisition parameters or parameter ranges - can be a dictionary or list"
+    }
   ],
   "operational_medical_sites_categories": [
-    "department",
-    "section",
-    "specialty",
-    "clinical_site_type"
+    {
+      "name": "department",
+      "data_type": "string",
+      "required": true,
+      "description": "Department name where the AI tool will be used"
+    },
+    {
+      "name": "section",
+      "data_type": "string",
+      "required": true,
+      "description": "Section name within the department"
+    },
+    {
+      "name": "specialty",
+      "data_type": "string",
+      "required": true,
+      "description": "Medical specialty"
+    },
+    {
+      "name": "clinical_site_type",
+      "data_type": "string",
+      "required": true,
+      "description": "Type of clinical site (e.g., 'hospital', 'clinical center', 'primary care')"
+    }
+  ],
+  "operational_countries_categories": [
+    {
+      "name": "countries",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of countries for which the tool is designed (ISO country codes or country names)"
+    },
+    {
+      "name": "regulations",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of regulations and legal frameworks that apply (e.g., 'GDPR', 'FDA', 'MDR', 'HIPAA')"
+    },
+    {
+      "name": "legal_frameworks",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of legal frameworks and compliance standards for each country"
+    }
   ]
 }
-

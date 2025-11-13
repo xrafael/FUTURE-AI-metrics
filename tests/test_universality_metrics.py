@@ -73,8 +73,7 @@ class TestUniversalityMetrics(unittest.TestCase):
             'ram_memory': 16,
             'disk_space': 50,
             'operating_system': 'Linux Ubuntu 20.04',
-            'libraries': ['tensorflow', 'numpy', 'pandas'],
-            'preprocessing_algorithms': ['Normalization', 'Bias Field Correction']
+            'libraries': ['tensorflow', 'numpy', 'pandas']
         }
         
         result = metrics.workflow_requirements_score(user_requirements)
@@ -106,6 +105,7 @@ class TestUniversalityMetrics(unittest.TestCase):
             'scanner_manufacturer': 'Siemens',
             'scanner_model': 'MAGNETOM Skyra',
             'reconstruction_algorithms': ['GRAPPA', 'SENSE'],
+            'preprocessing_algorithms': ['Normalization', 'Bias Field Correction'],
             'post_processing_algorithms': ['Noise Reduction', 'Edge Enhancement'],
             'software_version': 'VE11C',
             'image_format': ['DICOM', 'NIfTI'],
