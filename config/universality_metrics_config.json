@@ -1,0 +1,18 @@
+{
+  "real_requirements": [
+    "hardware_type",
+    "ram_memory",
+    "disk_space",
+    "operating_system",
+    "libraries"
+  ],
+  "compatibility_categories": [
+    "scanner_manufacturer",
+    "scanner_model",
+    "reconstruction_algorithms",
+    "software_version",
+    "image_format",
+    "acquisition_parameters"
+  ]
+}
+
