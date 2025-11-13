@@ -14,11 +14,11 @@ FUTURE-AI-metrics/
 │      └── metrics.py        # UniversalityMetrics class
 ├── config/                    # Configuration files directory
 │   ├── universality_metrics_config.json
-│   └── traceability_metrics_config.json
+│   └── xxxx_metrics_config.json
 ├── tests/                     # Test suite
 │   ├── __init__.py
 │   ├── test_universality_metrics.py
-│   └── test_traceability_metrics.py
+│   └── test_xxxx_metrics.py
 ├── requirements.txt           # Python dependencies
 ├── Readme.md                  # Project documentation
 └── PROJECT_STRUCTURE.md       # This file
