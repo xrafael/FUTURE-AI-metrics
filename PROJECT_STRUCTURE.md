@@ -52,7 +52,7 @@ python -m pytest tests/ -v
 ## Configuration
 
 Configuration files are stored in the `config/` directory, with separate files for each metric type:
-- `config/universality_metrics_config.json`: Contains `real_requirements` and `compatibility_categories`
+- `config/universality_metrics_config.json`: Contains `workflow_requirements` and `compatibility_categories`
 
 ## Adding New Metrics
 

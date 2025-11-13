@@ -1,18 +1,26 @@
 {
-  "real_requirements": [
+  "workflow_requirements": [
     "hardware_type",
     "ram_memory",
     "disk_space",
     "operating_system",
-    "libraries"
+    "libraries",
+    "preprocessing_algorithms"
   ],
   "compatibility_categories": [
     "scanner_manufacturer",
     "scanner_model",
     "reconstruction_algorithms",
+    "post_processing_algorithms",
     "software_version",
     "image_format",
     "acquisition_parameters"
+  ],
+  "operational_medical_sites_categories": [
+    "department",
+    "section",
+    "specialty",
+    "clinical_site_type"
   ]
 }
 

@@ -25,20 +25,28 @@ class TestUniversalityMetrics(unittest.TestCase):
         self.config_path = os.path.join(self.temp_dir, 'test_config.json')
         
         config = {
-            "real_requirements": [
+            "workflow_requirements": [
                 "hardware_type",
                 "ram_memory",
                 "disk_space",
                 "operating_system",
-                "libraries"
+                "libraries",
+                "preprocessing_algorithms"
             ],
             "compatibility_categories": [
                 "scanner_manufacturer",
                 "scanner_model",
                 "reconstruction_algorithms",
+                "post_processing_algorithms",
                 "software_version",
                 "image_format",
                 "acquisition_parameters"
+            ],
+            "operational_medical_sites_categories": [
+                "department",
+                "section",
+                "specialty",
+                "clinical_site_type"
             ]
         }
         
@@ -53,7 +61,7 @@ class TestUniversalityMetrics(unittest.TestCase):
     def test_init_with_config(self):
         """Test initialization with custom config path."""
         metrics = UniversalityMetrics(config_path=self.config_path)
-        self.assertIsNotNone(metrics.real_requirements)
+        self.assertIsNotNone(metrics.workflow_requirements)
         self.assertIsNotNone(metrics.compatibility_categories)
     
     def test_workflow_requirements_score_complete(self):
@@ -65,7 +73,8 @@ class TestUniversalityMetrics(unittest.TestCase):
             'ram_memory': 16,
             'disk_space': 50,
             'operating_system': 'Linux Ubuntu 20.04',
-            'libraries': ['tensorflow', 'numpy', 'pandas']
+            'libraries': ['tensorflow', 'numpy', 'pandas'],
+            'preprocessing_algorithms': ['Normalization', 'Bias Field Correction']
         }
         
         result = metrics.workflow_requirements_score(user_requirements)
@@ -97,6 +106,7 @@ class TestUniversalityMetrics(unittest.TestCase):
             'scanner_manufacturer': 'Siemens',
             'scanner_model': 'MAGNETOM Skyra',
             'reconstruction_algorithms': ['GRAPPA', 'SENSE'],
+            'post_processing_algorithms': ['Noise Reduction', 'Edge Enhancement'],
             'software_version': 'VE11C',
             'image_format': ['DICOM', 'NIfTI'],
             'acquisition_parameters': {'field_strength': '3T'}
@@ -122,6 +132,39 @@ class TestUniversalityMetrics(unittest.TestCase):
         
         self.assertLess(result['score'], 1.0)
         self.assertGreater(len(result['missing']), 0)
+    
+    def test_operational_medical_sites_score_complete(self):
+        """Test operational medical sites score with complete data."""
+        metrics = UniversalityMetrics(config_path=self.config_path)
+        
+        medical_site_info = {
+            'department': 'Radiology',
+            'section': 'Neuroradiology',
+            'specialty': 'Neuroradiology',
+            'clinical_site_type': 'hospital'
+        }
+        
+        result = metrics.operational_medical_sites_score(medical_site_info)
+        
+        self.assertEqual(result['score'], 1.0)
+        self.assertTrue(all(result['details'].values()))
+        self.assertEqual(len(result['missing']), 0)
+    
+    def test_operational_medical_sites_score_partial(self):
+        """Test operational medical sites score with partial data."""
+        metrics = UniversalityMetrics(config_path=self.config_path)
+        
+        medical_site_info = {
+            'department': 'Radiology',
+            'section': 'Neuroradiology',
+            # Missing specialty and clinical_site_type
+        }
+        
+        result = metrics.operational_medical_sites_score(medical_site_info)
+        
+        self.assertLess(result['score'], 1.0)
+        self.assertGreater(len(result['missing']), 0)
+        self.assertEqual(result['score'], 0.5)  # 2 out of 4 fields present
 
 
 if __name__ == '__main__':

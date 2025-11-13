@@ -5,10 +5,7 @@ This module provides a comprehensive set of metrics to evaluate how well
 a predictive model generalizes across different domains, datasets, and conditions.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Union
-from collections import defaultdict
-import warnings
+from typing import Dict, List, Optional, Union
 import json
 import os
 
@@ -47,8 +44,9 @@ class UniversalityMetrics:
         try:
             with open(config_path, 'r') as f:
                 config = json.load(f)
-                self.real_requirements = config.get('real_requirements', [])
+                self.workflow_requirements = config.get('workflow_requirements', [])
                 self.compatibility_categories = config.get('compatibility_categories', [])
+                self.operational_medical_sites_categories = config.get('operational_medical_sites_categories', [])
         except FileNotFoundError:
             raise FileNotFoundError(
                 f"Configuration file not found: {config_path}. "
@@ -59,10 +57,10 @@ class UniversalityMetrics:
                 f"Invalid JSON in configuration file {config_path}: {e}"
             )
         
-        if not self.real_requirements:
+        if not self.workflow_requirements:
             raise ValueError(
                 "No required categories found in configuration file. "
-                "The 'real_requirements' key must contain a non-empty list."
+                "The 'workflow_requirements' key must contain a non-empty list."
             )
         
         if not self.compatibility_categories:
@@ -70,6 +68,73 @@ class UniversalityMetrics:
                 "No compatibility categories found in configuration file. "
                 "The 'compatibility_categories' key must contain a non-empty list."
             )
+        
+        if not self.operational_medical_sites_categories:
+            raise ValueError(
+                "No operational medical sites categories found in configuration file. "
+                "The 'operational_medical_sites_categories' key must contain a non-empty list."
+            )
+    
+    def _validate_field(
+        self,
+        field_name: str,
+        field_value: Union[str, int, float, List[str], Dict, None],
+        field_type: Optional[str] = None
+    ) -> bool:
+        """
+        Validate a field value based on its expected type and constraints.
+        
+        Parameters
+        ----------
+        field_name : str
+            Name of the field being validated
+        field_value : Union[str, int, float, List[str], Dict, None]
+            The value to validate
+        field_type : str, optional
+            Special validation type (e.g., 'hardware_type' for CPU/GPU check)
+            
+        Returns
+        -------
+        bool
+            True if the field is valid, False otherwise
+        """
+        if field_value is None:
+            return False
+        
+        # Special validation for hardware_type
+        if field_type == 'hardware_type':
+            return (
+                isinstance(field_value, str) and 
+                field_value.lower() in ['cpu', 'gpu']
+            )
+        
+        # Validation for numeric fields (int/float > 0)
+        if field_type in ['ram_memory', 'disk_space']:
+            return (
+                isinstance(field_value, (int, float)) and 
+                field_value > 0
+            )
+        
+        # Validation for string fields (non-empty after strip)
+        if isinstance(field_value, str):
+            return len(field_value.strip()) > 0
+        
+        # Validation for list/tuple fields
+        if isinstance(field_value, (list, tuple)):
+            if len(field_value) == 0:
+                return False
+            # Check if all items are non-empty strings
+            return all(
+                isinstance(item, str) and len(item.strip()) > 0 
+                for item in field_value
+            )
+        
+        # Validation for dict fields (non-empty)
+        if isinstance(field_value, dict):
+            return len(field_value) > 0
+        
+        # For other types, consider valid if not None
+        return True
     
     def workflow_requirements_score(
         self,
@@ -85,6 +150,7 @@ class UniversalityMetrics:
         - Hard disk space needed
         - Operating system appropriate
         - Required libraries/dependencies
+        - Preprocessing algorithms
         
         Parameters
         ----------
@@ -95,6 +161,7 @@ class UniversalityMetrics:
             - 'disk_space' (int/float): Hard disk space in GB
             - 'operating_system' (str): OS name/version
             - 'libraries' (list): List of required library names
+            - 'preprocessing_algorithms' (list): List of preprocessing algorithm names
             
         Returns
         -------
@@ -106,70 +173,23 @@ class UniversalityMetrics:
             
         """
         # Use required categories from instance variable (loaded from JSON)
-        real_requirements = self.real_requirements
+        workflow_requirements = self.workflow_requirements
         
-        # Check each category (only those defined in real_requirements)
+        # Check each category (only those defined in workflow_requirements)
+        # This ensures we only check fields specified in the config, ignoring any extra fields
         details = {}
         missing = []
         
-        # Check hardware_type
-        if 'hardware_type' in real_requirements:
-            hardware_type = user_requirements.get('hardware_type')
-            details['hardware_type'] = (
-                hardware_type is not None and 
-                isinstance(hardware_type, str) and 
-                hardware_type.lower() in ['cpu', 'gpu']
-            )
-            if not details['hardware_type']:
-                missing.append('hardware_type')
-        
-        # Check RAM memory
-        if 'ram_memory' in real_requirements:
-            ram_memory = user_requirements.get('ram_memory')
-            details['ram_memory'] = (
-                ram_memory is not None and 
-                isinstance(ram_memory, (int, float)) and 
-                ram_memory > 0
-            )
-            if not details['ram_memory']:
-                missing.append('ram_memory')
-        
-        # Check disk space
-        if 'disk_space' in real_requirements:
-            disk_space = user_requirements.get('disk_space')
-            details['disk_space'] = (
-                disk_space is not None and 
-                isinstance(disk_space, (int, float)) and 
-                disk_space > 0
-            )
-            if not details['disk_space']:
-                missing.append('disk_space')
-        
-        # Check operating system
-        if 'operating_system' in real_requirements:
-            operating_system = user_requirements.get('operating_system')
-            details['operating_system'] = (
-                operating_system is not None and 
-                isinstance(operating_system, str) and 
-                len(operating_system.strip()) > 0
-            )
-            if not details['operating_system']:
-                missing.append('operating_system')
-        
-        # Check libraries
-        if 'libraries' in real_requirements:
-            libraries = user_requirements.get('libraries')
-            details['libraries'] = (
-                libraries is not None and 
-                isinstance(libraries, (list, tuple)) and 
-                len(libraries) > 0 and
-                all(isinstance(lib, str) and len(lib.strip()) > 0 for lib in libraries)
-            )
-            if not details['libraries']:
-                missing.append('libraries')
+        for field_name in workflow_requirements:
+            field_value = user_requirements.get(field_name)
+            # Use field_name as field_type for special validation cases
+            is_valid = self._validate_field(field_name, field_value, field_type=field_name)
+            details[field_name] = is_valid
+            if not is_valid:
+                missing.append(field_name)
         
         # Calculate completeness score
-        score = sum(details.values()) / len(real_requirements)
+        score = sum(details.values()) / len(workflow_requirements) if workflow_requirements else 0.0
         
         return {
             'score': score,
@@ -189,6 +209,7 @@ class UniversalityMetrics:
         - Scanner manufacturer
         - Scanner model
         - Reconstruction algorithms
+        - Post-processing algorithms
         - Software version
         - Image format support
         - Acquisition parameters
@@ -201,6 +222,7 @@ class UniversalityMetrics:
             - 'scanner_manufacturer' (str): Scanner manufacturer name (e.g., 'Siemens', 'GE', 'Philips')
             - 'scanner_model' (str): Specific scanner model name
             - 'reconstruction_algorithms' (list): List of supported reconstruction algorithm names
+            - 'post_processing_algorithms' (list): List of supported post-processing algorithm names
             - 'software_version' (str): Version of the reconstruction software
             - 'image_format' (str/list): Supported image format(s) (e.g., 'DICOM', 'NIfTI')
             - 'acquisition_parameters' (dict/list): Supported acquisition parameters or parameter ranges
@@ -218,85 +240,99 @@ class UniversalityMetrics:
         compatibility_categories = self.compatibility_categories
         
         # Check each category (only those defined in compatibility_categories)
+        # This ensures we only check fields specified in the config, ignoring any extra fields
         details = {}
         missing = []
         
-        # Check scanner_manufacturer
-        if 'scanner_manufacturer' in compatibility_categories:
-            scanner_manufacturer = compatibility_info.get('scanner_manufacturer')
-            details['scanner_manufacturer'] = (
-                scanner_manufacturer is not None and 
-                isinstance(scanner_manufacturer, str) and 
-                len(scanner_manufacturer.strip()) > 0
-            )
-            if not details['scanner_manufacturer']:
-                missing.append('scanner_manufacturer')
-        
-        # Check scanner_model
-        if 'scanner_model' in compatibility_categories:
-            scanner_model = compatibility_info.get('scanner_model')
-            details['scanner_model'] = (
-                scanner_model is not None and 
-                isinstance(scanner_model, str) and 
-                len(scanner_model.strip()) > 0
-            )
-            if not details['scanner_model']:
-                missing.append('scanner_model')
-        
-        # Check reconstruction_algorithms
-        if 'reconstruction_algorithms' in compatibility_categories:
-            reconstruction_algorithms = compatibility_info.get('reconstruction_algorithms')
-            details['reconstruction_algorithms'] = (
-                reconstruction_algorithms is not None and 
-                isinstance(reconstruction_algorithms, (list, tuple)) and 
-                len(reconstruction_algorithms) > 0 and
-                all(isinstance(alg, str) and len(alg.strip()) > 0 for alg in reconstruction_algorithms)
-            )
-            if not details['reconstruction_algorithms']:
-                missing.append('reconstruction_algorithms')
-        
-        # Check software_version
-        if 'software_version' in compatibility_categories:
-            software_version = compatibility_info.get('software_version')
-            details['software_version'] = (
-                software_version is not None and 
-                isinstance(software_version, str) and 
-                len(software_version.strip()) > 0
-            )
-            if not details['software_version']:
-                missing.append('software_version')
-        
-        # Check image_format
-        if 'image_format' in compatibility_categories:
-            image_format = compatibility_info.get('image_format')
-            # Can be a string or a list of strings
-            if isinstance(image_format, str):
-                details['image_format'] = len(image_format.strip()) > 0
-            elif isinstance(image_format, (list, tuple)):
-                details['image_format'] = (
-                    len(image_format) > 0 and
-                    all(isinstance(fmt, str) and len(fmt.strip()) > 0 for fmt in image_format)
-                )
+        for field_name in compatibility_categories:
+            field_value = compatibility_info.get(field_name)
+            
+            # Special handling for image_format (can be str or list)
+            if field_name == 'image_format':
+                if isinstance(field_value, str):
+                    is_valid = len(field_value.strip()) > 0
+                elif isinstance(field_value, (list, tuple)):
+                    is_valid = (
+                        len(field_value) > 0 and
+                        all(isinstance(fmt, str) and len(fmt.strip()) > 0 for fmt in field_value)
+                    )
+                else:
+                    is_valid = False
+            # Special handling for acquisition_parameters (can be dict or list)
+            elif field_name == 'acquisition_parameters':
+                if isinstance(field_value, dict):
+                    is_valid = len(field_value) > 0
+                elif isinstance(field_value, (list, tuple)):
+                    is_valid = len(field_value) > 0
+                else:
+                    is_valid = False
             else:
-                details['image_format'] = False
-            if not details['image_format']:
-                missing.append('image_format')
-        
-        # Check acquisition_parameters
-        if 'acquisition_parameters' in compatibility_categories:
-            acquisition_parameters = compatibility_info.get('acquisition_parameters')
-            # Can be a dict or a list
-            if isinstance(acquisition_parameters, dict):
-                details['acquisition_parameters'] = len(acquisition_parameters) > 0
-            elif isinstance(acquisition_parameters, (list, tuple)):
-                details['acquisition_parameters'] = len(acquisition_parameters) > 0
-            else:
-                details['acquisition_parameters'] = False
-            if not details['acquisition_parameters']:
-                missing.append('acquisition_parameters')
+                # Use generic validation for other fields
+                is_valid = self._validate_field(field_name, field_value)
+            
+            details[field_name] = is_valid
+            if not is_valid:
+                missing.append(field_name)
         
         # Calculate completeness score
-        score = sum(details.values()) / len(compatibility_categories)
+        score = sum(details.values()) / len(compatibility_categories) if compatibility_categories else 0.0
+        
+        return {
+            'score': score,
+            'details': details,
+            'missing': missing
+        }
+    
+    def operational_medical_sites_score(
+        self,
+        medical_site_info: Dict[str, Union[str, None]]
+    ) -> Dict[str, Union[float, Dict[str, bool]]]:
+        """
+        Compute a metric that evaluates if information about the operational medical site
+        which is going to run the AI tool is properly reported.
+        
+        This metric checks for the presence of:
+        - Department
+        - Section
+        - Specialty
+        - Clinical site type (e.g., hospital, clinical center, primary care)
+        
+        Parameters
+        ----------
+        medical_site_info : dict
+            Dictionary containing operational medical site information. Expected keys:
+            - 'department' (str): Department name
+            - 'section' (str): Section name
+            - 'specialty' (str): Medical specialty
+            - 'clinical_site_type' (str): Clinical site type (e.g., 'hospital', 'clinical center', 'primary care')
+            
+        Returns
+        -------
+        dict
+            Dictionary containing:
+            - 'score' (float): Completeness score between 0.0 and 1.0
+            - 'details' (dict): Boolean flags for each medical site category
+            - 'missing' (list): List of missing medical site categories
+            
+        """
+        # Use operational medical sites categories from instance variable (loaded from JSON)
+        operational_medical_sites_categories = self.operational_medical_sites_categories
+        
+        # Check each category (only those defined in operational_medical_sites_categories)
+        # This ensures we only check fields specified in the config, ignoring any extra fields
+        details = {}
+        missing = []
+        
+        for field_name in operational_medical_sites_categories:
+            field_value = medical_site_info.get(field_name)
+            # All fields in this metric are strings, use generic validation
+            is_valid = self._validate_field(field_name, field_value)
+            details[field_name] = is_valid
+            if not is_valid:
+                missing.append(field_name)
+        
+        # Calculate completeness score
+        score = sum(details.values()) / len(operational_medical_sites_categories) if operational_medical_sites_categories else 0.0
         
         return {
             'score': score,
