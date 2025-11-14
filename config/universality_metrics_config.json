@@ -70,7 +70,7 @@
       "min_items": 1,
       "required": true,
       "description": "List of preprocessing algorithm names"
-    }
+    },
     {
       "name": "post_processing_algorithms",
       "data_type": "list",
