@@ -22,38 +22,36 @@
       "description": "Hard disk space needed in GB (must be greater than 0)"
     },
     {
-      "name": "operating_system",
-      "data_type": "string",
+      "name": "operating_systems",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
       "required": true,
       "description": "Operating system name and version"
     },
     {
-      "name": "libraries",
+      "name": "software_libraries",
       "data_type": "list",
       "item_type": "string",
       "min_items": 1,
       "required": true,
       "description": "List of required library/dependency names"
-    },
-    {
-      "name": "preprocessing_algorithms",
-      "data_type": "list",
-      "item_type": "string",
-      "min_items": 1,
-      "required": true,
-      "description": "List of preprocessing algorithm names"
     }
   ],
   "compatibility_categories": [
     {
       "name": "scanner_manufacturer",
-      "data_type": "string",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
       "required": true,
       "description": "Scanner manufacturer name (e.g., 'Siemens', 'GE', 'Philips')"
     },
     {
       "name": "scanner_model",
-      "data_type": "string",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
       "required": true,
       "description": "Specific scanner model name"
     },
@@ -66,18 +64,20 @@
       "description": "List of supported reconstruction algorithm names"
     },
     {
+      "name": "preprocessing_algorithms",
+      "data_type": "list",
+      "item_type": "string",
+      "min_items": 1,
+      "required": true,
+      "description": "List of preprocessing algorithm names"
+    }
+    {
       "name": "post_processing_algorithms",
       "data_type": "list",
       "item_type": "string",
       "min_items": 1,
       "required": true,
       "description": "List of supported post-processing algorithm names"
-    },
-    {
-      "name": "software_version",
-      "data_type": "string",
-      "required": true,
-      "description": "Version of the reconstruction software"
     },
     {
       "name": "image_format",

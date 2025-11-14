@@ -36,15 +36,13 @@ class UniversalityMetrics:
         Parameters
         ----------
         config_path : str, optional
-            Path to the JSON configuration file containing workflow requirements,
+            Path to the JSON configuration file containing ground truth categories and values: workflow requirements,
             scanner compatibility categories, operational medical sites, and operational countries.
             If None, defaults to 'config/universality_metrics_config.json' in the project root directory.
         """
         # Get project root (parent of future_ai_metrics package)
         if config_path is None:
-            # Get the directory where this module is located
             module_dir = os.path.dirname(os.path.abspath(__file__))
-            # Go up to project root: future_ai_metrics/universality -> future_ai_metrics -> project root
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(module_dir)))
             config_path = os.path.join(project_root, 'config', 'universality_metrics_config.json')
         
@@ -52,6 +50,7 @@ class UniversalityMetrics:
         try:
             with open(config_path, 'r') as f:
                 config = json.load(f)
+
                 # Extract field names from the new structure (supports both old and new format)
                 self.workflow_requirements = extract_field_names(config.get('workflow_requirements', []))
                 self.workflow_requirements_metadata = extract_field_metadata(config.get('workflow_requirements', []))
@@ -61,6 +60,7 @@ class UniversalityMetrics:
                 self.operational_medical_sites_metadata = extract_field_metadata(config.get('operational_medical_sites_categories', []))
                 self.operational_countries_categories = extract_field_names(config.get('operational_countries_categories', []))
                 self.operational_countries_metadata = extract_field_metadata(config.get('operational_countries_categories', []))
+
         except FileNotFoundError:
             raise FileNotFoundError(
                 f"Configuration file not found: {config_path}. "
