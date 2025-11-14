@@ -40,7 +40,7 @@ class UniversalityMetrics:
             scanner compatibility categories, operational medical sites, and operational countries.
             If None, defaults to 'config/universality_metrics_config.json' in the project root directory.
         """
-        # Get project root (parent of future_ai_metrics package)
+        # Get project universality_metrics_config.json file path (in future_ai_metrics package)
         if config_path is None:
             module_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(module_dir)))
